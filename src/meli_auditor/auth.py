@@ -1,12 +1,15 @@
 import json
 import time
 import requests
+import logging
 from typing import Optional, Dict, Any
 from .config import settings
 
 TOKEN_FILE = "tokens.json"
 AUTH_URL = "https://auth.mercadolibre.com.co/authorization"
 TOKEN_URL = "https://api.mercadolibre.com/oauth/token"
+
+logger = logging.getLogger(__name__)
 
 class MeliAuth:
     def __init__(self):
@@ -21,7 +24,7 @@ class MeliAuth:
             f"&redirect_uri={settings.REDIRECT_URI}"
         )
 
-    def exchange_code(self, code: str) -> None:
+    def exchange_code(self, code: str) -> Dict[str, Any]:
         payload = {
             "grant_type": "authorization_code",
             "client_id": settings.APP_ID,
@@ -29,7 +32,7 @@ class MeliAuth:
             "code": code,
             "redirect_uri": settings.REDIRECT_URI,
         }
-        self._request_token(payload)
+        return self._request_token(payload)
 
     def get_token(self) -> str:
         if not self.access_token:
@@ -54,10 +57,10 @@ class MeliAuth:
             self._request_token(payload)
         except Exception as e:
             # If refresh fails, might be revoked.
-            print(f"Error refreshing token: {e}")
+            logger.error(f"Error refreshing token: {e}")
             raise
 
-    def _request_token(self, payload: Dict[str, Any]) -> None:
+    def _request_token(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         headers = {'accept': 'application/json', 'content-type': 'application/x-www-form-urlencoded'}
         response = requests.post(TOKEN_URL, data=payload, headers=headers)
         response.raise_for_status()
@@ -68,6 +71,7 @@ class MeliAuth:
         # expires_in is seconds
         self.expires_at = time.time() + data["expires_in"]
         self._save_tokens()
+        return data
 
     def _save_tokens(self) -> None:
         data = {

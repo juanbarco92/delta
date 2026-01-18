@@ -14,6 +14,12 @@ python-dotenv = "^1.0.1"
 tenacity = "^8.2.3"
 pydantic-settings = "^2.1.0"
 openpyxl = "^3.1.2"  # Required for pandas Excel export
+pyngrok = "^7.1.0"
+fastapi = "^0.128.0"
+uvicorn = "^0.40.0"
+
+[tool.poetry.scripts]
+start = "src.app.main:start"
 
 [build-system]
 requires = ["poetry-core"]
