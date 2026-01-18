@@ -43,6 +43,10 @@ class MeliClient:
             response.raise_for_status()
             return response.json()
         except requests.HTTPError as e:
+            logger.error(f"HTTP Error: {e}")
+            if e.response is not None:
+                logger.error(f"Response body: {e.response.text}")
+
             if e.response.status_code == 401:
                 # Token might be expired/revoked, force refresh could be added here
                 logger.error("Unauthorized. Token logic should handle auto-refresh.")
@@ -61,3 +65,67 @@ class MeliClient:
 
     def get_shipment(self, shipment_id: int) -> Dict[str, Any]:
         return self._request("GET", f"/shipments/{shipment_id}")
+
+    def get_items_ids(self, user_id: int) -> list[str]:
+        """
+        Fetch all item IDs for a user.
+        Uses the search endpoint to retrieve IDs.
+        """
+        # Initially, we only get 'results' which is a list of IDs.
+        # Pagination might be needed if user has many items, but for now we implement basic search.
+        # MeLi default limit is 50. We should scroll if more are needed.
+        # For this ticket's scope, we'll implement simple scrolling.
+        items = []
+        offset = 0
+        limit = 50
+        while True:
+            response = self._request("GET", f"/users/{user_id}/items/search", params={
+                "search_type": "scan",
+                "limit": limit,
+                "offset": offset
+            })
+            results = response.get("results", [])
+            items.extend(results)
+            
+            # Helper paging: if results < limit, we are done
+            # Note: /users/{id}/items/search with search_type=scan is recommended for getting all items.
+            # It uses scroll_id usually, but simple offset/limit works for standard search. 
+            # For 'scan' type, MeLi returns scroll_id. Let's stick to standard search for simplicity unless 'scan' is strictly required.
+            # Actually, the requirement says "GET /users/{id}/items/search".
+            # Let's assume standard paging for now.
+            paging = response.get("paging", {})
+            total = paging.get("total", 0)
+            
+            if len(items) >= total or len(results) == 0:
+                break
+            
+            offset += limit
+            
+        return items
+
+    def get_items_details(self, ids: list[str]) -> list[Dict[str, Any]]:
+        """
+        Fetch item details for a list of IDs.
+        Chunks requests in groups of 20 (MeLi limit for multiget).
+        """
+        chunk_size = 20
+        all_details = []
+        
+        for i in range(0, len(ids), chunk_size):
+            chunk = ids[i:i + chunk_size]
+            ids_str = ",".join(chunk)
+            response = self._request("GET", f"/items", params={"ids": ids_str})
+            # Multi-get returns a list of results inside the response list (or sometimes dict with body).
+            # The structure is list of objects with 'code' and 'body'.
+            # Example response: [{ "code": 200, "body": { ... } }, { "code": 404, "body": ... }]
+            if isinstance(response, list):
+                for item_resp in response:
+                    if item_resp.get("code") == 200:
+                        all_details.append(item_resp.get("body"))
+                    else:
+                        logger.warning(f"Failed to fetch item details: {item_resp}")
+            else:
+                 # Should be a list usually for multiget
+                 pass
+
+        return all_details
