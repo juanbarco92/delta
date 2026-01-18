@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "meli-auditor"
+version = "0.1.0"
+description = "Proof of Concept SaaS application to audit Mercado Libre Shipping Costs"
+authors = ["Your Name <you@example.com>"]
+packages = [{include = "meli_auditor", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.31.0"
+pandas = "^2.2.0"
+pydantic = "^2.6.0"
+python-dotenv = "^1.0.1"
+tenacity = "^8.2.3"
+pydantic-settings = "^2.1.0"
+openpyxl = "^3.1.2"  # Required for pandas Excel export
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
